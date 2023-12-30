@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const webdriver = require('selenium-webdriver');
 const multer = require("multer");
 const path = require("path");   
+const { default: axios } = require("axios");
 const { By, Key } = webdriver;
 const upload = multer({ dest: 'uploads/phoneNumbers/' }); // Specify the destination folder for uploaded files
 const PORT = 5000;
@@ -25,7 +26,8 @@ async function sendMessagesFromExcel(message , pdf, pdf2) {
         console.log("Number", contactNumber);
         console.log("Name", name);
 
-        if (contactNumber && message) {
+        // if (contactNumber && message) {
+            if (contactNumber ) {
             try {
                  await sendWhatsAppMessage(contactNumber, message, pdf2);
             } catch (error) {
@@ -129,9 +131,54 @@ async function main(message = "", pdf, pdf2) {
    
 }
 
-app.get("/", (req, res) => {
+app.get("/", async(req, res) => {
+    // await initializeWebDriver(); // Call the function before rendering the page
     res.render("pages/index");
 })
+
+async function getLatestVersions() {
+    try {
+        const response = await axios.get('https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json');
+        const channels = response.data.channels;
+
+        // Assuming you want the Stable channel, change it accordingly if needed
+        const stableChannel = channels.Stable;
+        console.log("stablechane", stableChannel);
+        const chromeVersion = stableChannel.version;
+
+        // Select the platform you need (e.g., win64)
+        const platform = 'win64';
+
+        // Find the download object for the specified platform
+        const download = stableChannel.downloads.chromedriver.find(item => item.platform === platform);
+        console.log("download",download )
+        // Extract the chromedriver version
+        const chromedriverVersion = download ? download.url.split('/')[8] : undefined;
+
+        return { chromeVersion, chromedriverVersion };
+    } catch (error) {
+        console.error('Failed to fetch versions. Cannot initialize WebDriver.', error.message);
+        return null;
+    }
+}
+
+
+async function initializeWebDriver() {
+    const versions = await getLatestVersions();
+    if (versions) {
+        console.log('Latest Chrome version:', versions.chromeVersion);
+        console.log('Latest ChromeDriver version:', versions.chromedriverVersion);
+
+        // Use these versions to download and set up the appropriate ChromeDriver
+        // For example, you can download the chromedriver executable from the official website
+        // and set the path accordingly in your Selenium WebDriver initialization.
+
+        // Replace the following line with your actual code to set up the WebDriver
+        driver = new webdriver.Builder().forBrowser('chrome').build();
+    } else {
+        console.error('Failed to fetch versions. Cannot initialize WebDriver.');
+    }
+}
 
 app.post("/result", upload.fields([{name : "pdf"}, {name : "pdf2"}]), (req, res) => {
     console.log("Result MEssage", req.body);
